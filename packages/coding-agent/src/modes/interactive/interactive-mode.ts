@@ -3453,7 +3453,10 @@ export class InteractiveMode {
 		this.chatContainer.addChild(component);
 	}
 
-	private addMessageToChat(message: AgentMessage, options?: { populateHistory?: boolean }): void {
+	private addMessageToChat(
+		message: AgentMessage,
+		options?: { populateHistory?: boolean; messageId?: string; timestamp?: string },
+	): void {
 		switch (message.role) {
 			case "bashExecution": {
 				const component = new BashExecutionComponent(message.command, this.ui, message.excludeFromContext);
@@ -3520,6 +3523,8 @@ export class InteractiveMode {
 								this.getMarkdownThemeWithSettings(),
 								this.outputPad,
 								this.getMarkdownTransformers(),
+								options?.messageId,
+								options?.timestamp,
 							);
 							this.chatContainer.addChild(userComponent);
 						}
@@ -3529,6 +3534,8 @@ export class InteractiveMode {
 							this.getMarkdownThemeWithSettings(),
 							this.outputPad,
 							this.getMarkdownTransformers(),
+							options?.messageId,
+							options?.timestamp,
 						);
 						this.chatContainer.addChild(userComponent);
 					}
@@ -3546,6 +3553,8 @@ export class InteractiveMode {
 					this.hiddenThinkingLabel,
 					this.outputPad,
 					this.getMarkdownTransformers(),
+					options?.messageId,
+					options?.timestamp,
 				);
 				this.chatContainer.addChild(assistantComponent);
 				break;
@@ -3562,6 +3571,7 @@ export class InteractiveMode {
 
 	private renderSessionItems(
 		items: readonly RenderSessionItem[],
+		messageMeta?: Map<AgentMessage, { id: string; timestamp: string }>,
 		options: { updateFooter?: boolean; populateHistory?: boolean } = {},
 	): void {
 		this.pendingTools.clear();
@@ -3586,7 +3596,11 @@ export class InteractiveMode {
 			const message = item;
 			// Assistant messages need special handling for tool calls
 			if (message.role === "assistant") {
-				this.addMessageToChat(message);
+				const meta = messageMeta?.get(message);
+				this.addMessageToChat(message, {
+					messageId: meta?.id,
+					timestamp: meta?.timestamp,
+				});
 				// Render tool call components
 				for (const content of message.content) {
 					if (content.type === "toolCall") {
@@ -3635,7 +3649,12 @@ export class InteractiveMode {
 				}
 			} else {
 				// All other messages use standard rendering
-				this.addMessageToChat(message, options);
+				const meta = messageMeta?.get(message);
+				this.addMessageToChat(message, {
+					...options,
+					messageId: meta?.id,
+					timestamp: meta?.timestamp,
+				});
 			}
 		}
 
@@ -3655,13 +3674,18 @@ export class InteractiveMode {
 		entries: SessionEntry[],
 		options: { updateFooter?: boolean; populateHistory?: boolean } = {},
 	): void {
+		const messageMeta = new Map<AgentMessage, { id: string; timestamp: string }>();
 		const items = entries.flatMap((entry): RenderSessionItem[] => {
 			if (entry.type === "custom") {
 				return [entry];
 			}
-			return sessionEntryToContextMessages(entry);
+			const messages = sessionEntryToContextMessages(entry);
+			for (const msg of messages) {
+				messageMeta.set(msg, { id: entry.id, timestamp: entry.timestamp });
+			}
+			return messages;
 		});
-		this.renderSessionItems(items, options);
+		this.renderSessionItems(items, messageMeta, options);
 	}
 
 	/**

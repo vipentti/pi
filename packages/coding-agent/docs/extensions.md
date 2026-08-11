@@ -1576,11 +1576,13 @@ The transformer receives the Markdown string and a context with:
 - `messageType` — `"user"`, `"assistant"`, or `"assistant-thinking"`
 - `isStreaming` — `true` for partial assistant updates; `false` for user, finalized assistant, and restored messages
 - `availableWidth` — exact terminal columns available for the transformed Markdown content
+- `messageId` — optional persisted session-entry id when rendering a restored entry; `undefined` for live streaming
+- `timestamp` — optional persisted session-entry ISO timestamp; `undefined` for live streaming
 
 Return the transformed Markdown:
 
 ```typescript
-pi.registerMarkdownTransformer((markdown, { messageType, isStreaming }) => {
+pi.registerMarkdownTransformer((markdown, { messageType, isStreaming, messageId, timestamp }) => {
   if (isStreaming || messageType === "assistant-thinking") return markdown;
   return markdown.replaceAll("-->", "→");
 });
